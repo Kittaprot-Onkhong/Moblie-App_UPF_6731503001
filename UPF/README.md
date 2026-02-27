@@ -173,6 +173,36 @@ Card Radius:      8px to 12px
 
 ## 🔄 Navigation Flow
 
+---
+
+## 🖥️ Running on Web / Deployment
+
+This project is built with **Expo for React Native**, which supports a web target in addition to mobile.
+
+1. **Start dev server**
+   ```powershell
+   npm run web           # or expo start --web
+   ```
+   Open `http://localhost:19006` to see the app in your browser. Navigation and screens behave exactly as on a device.
+
+2. **Build a production bundle**
+   ```powershell
+   npm run build:web
+   ```
+   The output directory is `web-build/`.
+
+3. **Deploy to Firebase Hosting**
+   The `firebase.json` is configured to serve `web-build` directly, so you can deploy with:
+   ```powershell
+   npm run deploy:web    # builds and pushes to hosting
+   ```
+   Alternatively, run `firebase deploy --only hosting` after building.
+
+> 🔁 If you prefer to serve from `public/` instead, simply copy the contents of `web-build/` there and leave `hosting.public` as `public`.
+
+
+## 🔄 Navigation Flow
+
 ```
 LOGIN (Initial)
     │
