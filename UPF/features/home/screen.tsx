@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Images } from '../../assets/images';
+import { useLanguage } from '../../core/i18n';
+import { useUserStore } from '../../core/store/userStore';
 import {
   View,
   Text,
@@ -262,6 +264,8 @@ const FeaturedCard = ({ item, index, onPress }: any) => {
 // ─── Component: Product Card ────────────────
 const ProductCard = ({ item, index, onPress }: any) => {
   const itemAnim = useRef(new Animated.Value(0)).current;
+  const { isFavorite } = useUserStore();
+  const fav = isFavorite(item.name);
 
   useEffect(() => {
     Animated.timing(itemAnim, {
@@ -307,6 +311,7 @@ const ProductCard = ({ item, index, onPress }: any) => {
         <View style={styles.scoreBox}>
           <Text style={styles.scoreNum}>{item.score}</Text>
           <Text style={styles.scoreStar}>⭐</Text>
+          {fav && <Text style={styles.favBadge}>รายการโปรด</Text>}
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -315,6 +320,8 @@ const ProductCard = ({ item, index, onPress }: any) => {
 
 // ─── Main Component ────────────────────────────
 const HomeScreen = ({ navigation }: any) => {
+  const { language, setLanguage } = useLanguage();
+  const user = useUserStore(state => state.user);
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [isLoading, setIsLoading] = useState(false);
   const categories = ['ทั้งหมด', 'ขนม', 'เครื่องดื่ม', 'บะหมี่สำเร็จรูป', 'ขนมปัง'];
@@ -425,14 +432,25 @@ const HomeScreen = ({ navigation }: any) => {
             <Text style={styles.greeting}>สวัสดี! 👋</Text>
             <Text style={styles.subGreeting}>ตรวจสอบอาหารของคุณวันนี้</Text>
           </View>
-          <TouchableOpacity
-            style={styles.profileBtn}
-            onPress={() => navigation.navigate('Profile')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.profileIcon}>👤</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.languageBtn}
+              onPress={() => setLanguage(language === 'th' ? 'en' : 'th')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.languageText}>{language === 'th' ? '🇹🇭' : '🇬🇧'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => navigation.navigate('Profile')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.profileIcon}>👤</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
+
+
 
         {/* Scan Button */}
         <Animated.View style={[styles.scanSection, {
@@ -615,6 +633,22 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 24, fontWeight: '700', color: GREEN },
   subGreeting: { fontSize: 13, color: TEXT_MID, marginTop: 2 },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  languageBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ORANGE_LIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: ORANGE,
+  },
+  languageText: { fontSize: 18 },
   profileBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: ORANGE_LIGHT,
@@ -622,6 +656,35 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: ORANGE,
   },
   profileIcon: { fontSize: 20 },
+
+  countsSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    marginBottom: 8,
+    backgroundColor: WHITE,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    zIndex: 1,
+  },
+  countBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  countNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: GREEN,
+    marginBottom: 2,
+  },
+  countLabel: {
+    fontSize: 12,
+    color: TEXT_MID,
+    fontWeight: '500',
+  },
+
 
   scanSection: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, zIndex: 1 },
   scanBtn: {
@@ -766,9 +829,10 @@ const styles = StyleSheet.create({
   productCal: { fontSize: 12, color: ORANGE, fontWeight: '700', marginBottom: 6 },
   productBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 },
   productBadgeText: { fontSize: 10, fontWeight: '700', color: WHITE },
-  scoreBox: { alignItems: 'center', justifyContent: 'center', paddingLeft: 8 },
+  scoreBox: { alignItems: 'center', justifyContent: 'center', paddingLeft: 8, position: 'relative' },
   scoreNum: { fontSize: 18, fontWeight: '700', color: GREEN },
   scoreStar: { fontSize: 14 },
+  favBadge: { position: 'absolute', bottom: -8, right: -8, fontSize: 11, fontWeight: '700', color: ORANGE, backgroundColor: ORANGE_LIGHT, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
 });
 
 export default HomeScreen;

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '../../core/store/userStore';
-import { loginUser, registerUser } from '../../core/services/firebase';
+import { loginUser, registerUser, signInWithGoogle, signInWithGoogleCredential, resetPassword } from '../../core/services/firebase';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, TextInput, ScrollView, StatusBar,
-  Animated, Easing, ActivityIndicator,
+  Animated, Easing, ActivityIndicator, Platform,
 } from 'react-native';
+import * as Google from 'expo-auth-session/providers/google';
 
 // ─── Brand colours ─────────────────────────────────────────
 const GREEN        = '#3BAD45';
@@ -32,6 +33,19 @@ const LoginScreen = ({ navigation }: any) => {
   const [isSignup, setIsSignup]         = useState(false);
   const [isLoading, setIsLoading]       = useState(false);
   const [errorMsg, setErrorMsg]         = useState('');
+  const [successMsg, setSuccessMsg]     = useState('');
+  // Google OAuth client ids - replace with your Firebase OAuth client IDs
+  const ANDROID_CLIENT_ID = '';
+  const IOS_CLIENT_ID = '';
+  const EXPO_CLIENT_ID = '';
+  const WEB_CLIENT_ID = '';
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: EXPO_CLIENT_ID,
+    iosClientId: IOS_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
+  } as any);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -222,6 +236,91 @@ const LoginScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    if (Platform.OS === 'web') {
+      setIsLoading(true);
+      try {
+        const result = await signInWithGoogle();
+        if (!result.success) throw new Error(result.error || 'เข้าสู่ระบบด้วย Google ล้มเหลว');
+        const user = result.user;
+        setUser({
+          name: user.name || user.email?.split('@')[0],
+          email: user.email,
+          avatar: '👤',
+          memberSince: 'มกราคม 2026',
+          scannedProducts: 0,
+          favoriteProducts: 0,
+          healthScore: 0,
+        });
+        navigation.replace('Home');
+      } catch (error: any) {
+        setErrorMsg(error.message || 'เกิดข้อผิดพลาด');
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // native flow using expo-auth-session
+      try {
+        await promptAsync();
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Google sign-in failed');
+      }
+    }
+  };
+
+  const handleForgot = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    if (!email) {
+      setErrorMsg('กรุณากรอกรายการอีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await resetPassword(email);
+      if (!res.success) throw new Error(res.error || 'ส่งอีเมลรีเซ็ตรหัสผ่านล้มเหลว');
+      setSuccessMsg('ส่งอีเมลรีเซ็ตรหัสผ่านไปยังอีเมลของคุณแล้ว');
+    } catch (error: any) {
+      setErrorMsg(error.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // handle expo-auth-session response for Google
+    const handle = async () => {
+      if (response?.type === 'success') {
+        const auth = response.authentication;
+        const idToken = auth?.idToken ?? null;
+        const accessToken = auth?.accessToken ?? null;
+        setIsLoading(true);
+        try {
+          const res = await signInWithGoogleCredential(idToken, accessToken);
+          if (!res.success) throw new Error(res.error || 'Login failed');
+          const user = res.user;
+          setUser({
+            name: user.name || user.email?.split('@')[0],
+            email: user.email,
+            avatar: '👤',
+            memberSince: 'มกราคม 2026',
+            scannedProducts: 0,
+            favoriteProducts: 0,
+            healthScore: 0,
+          });
+          navigation.replace('Home');
+        } catch (err: any) {
+          setErrorMsg(err.message || 'เข้าสู่ระบบด้วย Google ล้มเหลว');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    handle();
+  }, [response]);
+
 
   return (
     <SafeAreaView style={s.container}>
@@ -352,8 +451,15 @@ const LoginScreen = ({ navigation }: any) => {
             </View>
           ) : null}
 
+          {/* Success Message */}
+          {successMsg ? (
+            <View style={s.successBox}>
+              <Text style={s.successText}>✅ {successMsg}</Text>
+            </View>
+          ) : null}
+
           {/* Forgot */}
-          <TouchableOpacity style={s.forgotBtn}>
+          <TouchableOpacity style={s.forgotBtn} onPress={handleForgot}>
             <Text style={s.forgotText}>ลืมรหัสผ่าน?</Text>
           </TouchableOpacity>
 
@@ -384,11 +490,7 @@ const LoginScreen = ({ navigation }: any) => {
 
           {/* Social Login */}
           <View style={s.socialRow}>
-            <TouchableOpacity style={s.socialBtn}>
-              <Text style={{ fontSize: 18 }}>🍎</Text>
-              <Text style={s.socialText}>Apple</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.socialBtn}>
+            <TouchableOpacity style={s.socialBtn} onPress={handleGoogleSignIn}>
               <Text style={{ fontSize: 18 }}>🌐</Text>
               <Text style={s.socialText}>Google</Text>
             </TouchableOpacity>
@@ -550,6 +652,17 @@ const s = StyleSheet.create({
     borderLeftColor: '#E74C3C',
   },
   errorText: { fontSize: 13, color: '#C0392B', fontWeight: '600' },
+
+  // success message
+  successBox: {
+    backgroundColor: '#E8F7E9',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2E9438',
+  },
+  successText: { fontSize: 13, color: '#2E9438', fontWeight: '600' },
 
   // divider
   divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },

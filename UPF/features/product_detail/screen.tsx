@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Image } from 'react-native';
 import { Images } from '../../assets/images';
+import { useUserStore } from '../../core/store/userStore';
 import {
   getUPFColor,
   getUPFBgColor,
   getUPFDescription,
+  getProductWarnings,
 } from './utils';
 
 
@@ -65,10 +67,29 @@ type Props = {
 };
 
 const ProductDetailScreen = ({ navigation, route }: Props) => {
-
+  const { addFavorite, removeFavorite, isFavorite } = useUserStore();
   const product: Product = route.params?.product ?? mockProduct;
 
-  const [isFavorite, setIsFavorite] = useState(false);
+  // Check if product is in favorites using product name as ID
+  const productId = product.name;
+  const favorites = useUserStore(state => state.favorites);
+  const isCurrentFavorite = isFavorite(productId);
+
+  const handleToggleFavorite = () => {
+    if (isCurrentFavorite) {
+      removeFavorite(productId);
+    } else {
+      addFavorite(productId);
+    }
+  };
+
+  // Generate warnings based on UPF level
+  const hasHighSodium = product.nutrition?.some(n => n.label === 'โซเดียม' && n.high);
+  const hasMSG = product.ingredients?.some(i => i.includes('MSG') || i.includes('กลูตาเมต'));
+  const warnings = useMemo(
+    () => getProductWarnings(product.upfLevel, hasHighSodium, hasMSG),
+    [product.upfLevel, hasHighSodium, hasMSG]
+  );
 
   if (!product) {
     return (
@@ -104,9 +125,9 @@ const ProductDetailScreen = ({ navigation, route }: Props) => {
         <Text style={styles.headerTitle}>รายละเอียดสินค้า</Text>
         <TouchableOpacity 
           style={styles.favBtn}
-          onPress={() => setIsFavorite(!isFavorite)}
+          onPress={handleToggleFavorite}
         >
-          <Text style={styles.favIcon}>{isFavorite ? '❤️' : '🤍'}</Text>
+          <Text style={styles.favIcon}>{isCurrentFavorite ? '❤️' : '🤍'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -212,9 +233,7 @@ const ProductDetailScreen = ({ navigation, route }: Props) => {
             <View style={styles.warningContent}>
               <Text style={styles.warningTitle}>ข้อควรระวัง</Text>
               <Text style={styles.warningText}>
-                • มีโซเดียมสูง ผู้ป่วยโรคความดันควรหลีกเลี่ยง{'\n'}
-                • มี MSG อาจทำให้แพ้ในบางคน{'\n'}
-                • ไม่เหมาะสำหรับเด็กเล็กและผู้สูงอายุ
+                {warnings.map((w, i) => (i > 0 ? '\n' : '') + '• ' + w).join('')}
               </Text>
             </View>
           </View>

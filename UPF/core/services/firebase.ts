@@ -7,6 +7,12 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithCredential,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Firebase configuration (คัดลอกมาจาก console)
@@ -78,6 +84,55 @@ export const loginUser = async (email: string, password: string) => {
       success: false,
       error: error.message,
     };
+  }
+};
+
+// ลงชื่อเข้าใช้ด้วย Google (web popup)
+export const signInWithGoogle = async () => {
+  try {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    return {
+      success: true,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName || user.email?.split('@')[0] || '',
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+// ลงชื่อเข้าใช้ด้วย credential ที่ได้จาก native/oauth (idToken / accessToken)
+export const signInWithGoogleCredential = async (idToken: string | null, accessToken?: string | null) => {
+  try {
+    if (!idToken && !accessToken) throw new Error('Missing tokens');
+    const credential = GoogleAuthProvider.credential(idToken || undefined, accessToken || undefined);
+    const result = await signInWithCredential(auth, credential);
+    const user = result.user;
+    return {
+      success: true,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName || user.email?.split('@')[0] || '',
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+// ส่งอีเมลสำหรับรีเซ็ตรหัสผ่าน
+export const resetPassword = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 };
 
