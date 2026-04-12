@@ -2,7 +2,8 @@
 
 UPF is a mobile application designed to help people make better food choices by understanding what they eat.  
 The app focuses on identifying **ultra-processed foods (UPF)**, chemical additives, and their potential long-term health effects in a simple and accessible way.
-
+---
+link : https://upf001-b206e.web.app/
 ---
 
 ## 📱 App Overview
@@ -42,7 +43,4 @@ UPF helps users become more aware of food ingredients and processing levels, ena
 - 👤 **Profile & Scan History**  
   Stores personal information and records past scans.
 
----
-
-## 🧭 User Flow
 
