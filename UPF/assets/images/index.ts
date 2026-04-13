@@ -6,3 +6,5 @@ export const Images = {
     lays5: require('./lays5.png'),
     lays6: require('./lays6.jpg'),
 };
+
+export type ImageKey = keyof typeof Images;

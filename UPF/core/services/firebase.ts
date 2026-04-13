@@ -4,18 +4,18 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  setPersistence,
-  browserLocalPersistence,
-} from 'firebase/auth';
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithCredential,
   sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithCredential,
+  // ✅ FIX: ลบ browserLocalPersistence ออก — ใช้ได้เฉพาะ web เท่านั้น
+  // บน React Native / Expo ไม่ต้องตั้ง persistence เอง
 } from 'firebase/auth';
+
+// ✅ FIX: ลบ signInWithPopup ออก — ใช้ไม่ได้บน native mobile
+// Google Sign-In บน mobile ต้องใช้ expo-auth-session แทน (ทำใน screen แล้ว)
+
 import { getFirestore } from 'firebase/firestore';
 
-// Firebase configuration (คัดลอกมาจาก console)
 const firebaseConfig = {
   apiKey: "AIzaSyDDKwfrZaVrVReYIinl3kDghG3BRP71ykE",
   authDomain: "upf001-b206e.firebaseapp.com",
@@ -26,125 +26,128 @@ const firebaseConfig = {
   measurementId: "G-Q8VWB9BW0H",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Optional: analytics (web only)
-import { getAnalytics } from 'firebase/analytics';
-export const analytics = getAnalytics(app);
+// ✅ FIX: ลบ getAnalytics ออก — crash บน React Native (ใช้ได้เฉพาะ web)
+// import { getAnalytics } from 'firebase/analytics';
+// export const analytics = getAnalytics(app);
 
-
-// Initialize Auth
 export const auth = getAuth(app);
-
-// Initialize Firestore
 export const db = getFirestore(app);
 
-// ตั้ง persistence เพื่อให้ login อยู่ต่อเมื่อปิดแอป
-try {
-  setPersistence(auth, browserLocalPersistence);
-} catch (error) {
-  console.log('Persistence not supported:', error);
-}
+// ✅ FIX: ลบ setPersistence(browserLocalPersistence) ออก
+// browserLocalPersistence ใช้ได้เฉพาะ web — บน React Native จะ crash
 
-// ฟังก์ชันสำหรับลงทะเบียน
+// ─── Register ────────────────────────────────────────────────
 export const registerUser = async (email: string, password: string, name: string) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return {
+      success: true,
       user: {
         uid: userCredential.user.uid,
         email: userCredential.user.email,
-        name: name,
+        name,
       },
-      success: true,
     };
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    };
+    return { success: false, error: translateFirebaseError(error.code) };
   }
 };
 
-// ฟังก์ชันสำหรับเข้าสู่ระบบ
+// ─── Login ────────────────────────────────────────────────────
 export const loginUser = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return {
+      success: true,
       user: {
         uid: userCredential.user.uid,
         email: userCredential.user.email,
         name: userCredential.user.displayName || email.split('@')[0],
       },
-      success: true,
     };
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    };
+    return { success: false, error: translateFirebaseError(error.code) };
   }
 };
 
-// ลงชื่อเข้าใช้ด้วย Google (web popup)
+// ─── Google Sign-In (web popup only) ─────────────────────────
 export const signInWithGoogle = async () => {
   try {
+    // ✅ FIX: lazy import เพื่อให้ bundle บน native ไม่พัง
+    const { signInWithPopup } = await import('firebase/auth');
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    const user = result.user;
     return {
       success: true,
       user: {
-        uid: user.uid,
-        email: user.email,
-        name: user.displayName || user.email?.split('@')[0] || '',
+        uid: result.user.uid,
+        email: result.user.email,
+        name: result.user.displayName || result.user.email?.split('@')[0] || '',
       },
     };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: translateFirebaseError(error.code) };
   }
 };
 
-// ลงชื่อเข้าใช้ด้วย credential ที่ได้จาก native/oauth (idToken / accessToken)
-export const signInWithGoogleCredential = async (idToken: string | null, accessToken?: string | null) => {
+// ─── Google Sign-In Credential (native expo-auth-session) ────
+export const signInWithGoogleCredential = async (
+  idToken: string | null,
+  accessToken?: string | null,
+) => {
   try {
     if (!idToken && !accessToken) throw new Error('Missing tokens');
-    const credential = GoogleAuthProvider.credential(idToken || undefined, accessToken || undefined);
+    const credential = GoogleAuthProvider.credential(
+      idToken || undefined,
+      accessToken || undefined,
+    );
     const result = await signInWithCredential(auth, credential);
-    const user = result.user;
     return {
       success: true,
       user: {
-        uid: user.uid,
-        email: user.email,
-        name: user.displayName || user.email?.split('@')[0] || '',
+        uid: result.user.uid,
+        email: result.user.email,
+        name: result.user.displayName || result.user.email?.split('@')[0] || '',
       },
     };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: translateFirebaseError(error.code) };
   }
 };
 
-// ส่งอีเมลสำหรับรีเซ็ตรหัสผ่าน
+// ─── Reset Password ───────────────────────────────────────────
 export const resetPassword = async (email: string) => {
   try {
     await sendPasswordResetEmail(auth, email);
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: translateFirebaseError(error.code) };
   }
 };
 
-// ฟังก์ชันสำหรับออกจากระบบ
+// ─── Logout ───────────────────────────────────────────────────
 export const logoutUser = async () => {
   try {
     await signOut(auth);
     return { success: true };
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    };
+    return { success: false, error: error.message };
+  }
+};
+
+// ─── แปล Firebase error code เป็นภาษาไทย ────────────────────
+const translateFirebaseError = (code: string): string => {
+  switch (code) {
+    case 'auth/email-already-in-use':     return 'อีเมลนี้ถูกใช้งานแล้ว';
+    case 'auth/invalid-email':            return 'รูปแบบอีเมลไม่ถูกต้อง';
+    case 'auth/weak-password':            return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+    case 'auth/user-not-found':           return 'ไม่พบบัญชีผู้ใช้นี้';
+    case 'auth/wrong-password':           return 'รหัสผ่านไม่ถูกต้อง';
+    case 'auth/invalid-credential':       return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    case 'auth/too-many-requests':        return 'พยายามเข้าสู่ระบบมากเกินไป กรุณารอสักครู่';
+    case 'auth/network-request-failed':   return 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต';
+    default:                              return 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
   }
 };

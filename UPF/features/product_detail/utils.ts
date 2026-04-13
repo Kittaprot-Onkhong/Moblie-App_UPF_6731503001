@@ -34,33 +34,3 @@ export const getUPFDescription = (level: string) => {
       return '';
   }
 };
-
-export const getProductWarnings = (level: string, hasHighSodium?: boolean, hasMSG?: boolean) => {
-  const warnings: string[] = [];
-
-  switch (level) {
-    case 'สูงมาก':
-      warnings.push('⚠️ อาหารแปรรูปสูงมาก - หลีกเลี่ยงหรือรับประทานอย่างน้อยที่สุด');
-      warnings.push('มีส่วนประกอบเทียมมากมาย');
-      warnings.push('ปริมาณน้ำตาล เกลือ และไขมันสูง');
-      warnings.push('ไม่เหมาะสำหรับเด็กและผู้สูงอายุ');
-      break;
-    case 'สูง':
-      warnings.push('⚠️ อาหารแปรรูปสูง - ควรจำกัดการรับประทาน');
-      if (hasHighSodium) warnings.push('มีโซเดียมสูง ผู้ป่วยโรคความดันควรหลีกเลี่ยง');
-      if (hasMSG) warnings.push('มี MSG (กลูตาเมต) อาจทำให้แพ้ในบางคน');
-      warnings.push('รับประทานบ่อย ๆ อาจเพิ่มความเสี่ยงโรค');
-      break;
-    case 'ปานกลาง':
-      warnings.push('⚠️ อาหารแปรรูปปานกลาง - ควรรับประทานอย่างพอเหมาะ');
-      if (hasHighSodium) warnings.push('มีโซเดียมสูง');
-      warnings.push('อ่านส่วนผสมให้ดี');
-      break;
-    case 'ต่ำ':
-      warnings.push('✅ อาหารแปรรูปต่ำ - เหมาะสำหรับรับประทานเป็นประจำ');
-      warnings.push('มีสารอาหารสูง');
-      break;
-  }
-
-  return warnings;
-};
