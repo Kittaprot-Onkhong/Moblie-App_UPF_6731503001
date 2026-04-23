@@ -28,9 +28,6 @@ UPF helps users become more aware of food ingredients and processing levels, ena
 
 ## 🚀 Core Features (MVP)
 
-- 🔍 **Food & Product Scanner**  
-  Scan barcodes or take photos of food products to view ingredient information.
-
 - 🧪 **Ingredient & Chemical Breakdown**  
   Displays nutritional values, additives, and chemical components in simple language.
 
@@ -40,7 +37,7 @@ UPF helps users become more aware of food ingredients and processing levels, ena
 - 🔁 **Healthy Alternatives**  
   Suggests better and more convenient food options.
 
-- 👤 **Profile & Scan History**  
-  Stores personal information and records past scans.
+- 👤 **Profile**  
+  Stores personal information.
 
 
