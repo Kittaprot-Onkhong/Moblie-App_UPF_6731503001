@@ -1,12 +1,10 @@
 const { getDefaultConfig } = require('expo/metro-config');
 
-const config = getDefaultConfig(__dirname, {
-  // Enable CSS support
-  isCSSEnabled: true,
-});
+const config = getDefaultConfig(__dirname);
 
-// Customize Metro to exclude built-in Node modules
-config.resolver.blacklistRE = /node_modules\/(react-native|expo)\/.+\.native\.js$/;
-config.resolver.sourceExts = ['web.js', 'web.ts', 'web.tsx', 'js', 'jsx', 'ts', 'tsx', 'json'];
+// 🔥 FIX idb broken package
+config.resolver.extraNodeModules = {
+  idb: require.resolve('idb/with-async-ittr.js'),
+};
 
 module.exports = config;

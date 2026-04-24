@@ -1,0 +1,11 @@
+{
+  "android": {
+    "package": "com.anonymous.upf"
+  },
+  "extra": {
+    "eas": {
+      "projectId": "56308bc5-c970-46de-9d26-aa98e0a4407e"
+    }
+  },
+  "owner": "poomjai"
+}
