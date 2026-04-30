@@ -1,11 +1,28 @@
 {
-  "android": {
-    "package": "com.anonymous.upf"
-  },
-  "extra": {
-    "eas": {
-      "projectId": "56308bc5-c970-46de-9d26-aa98e0a4407e"
+  "expo": {
+    "name": "UPF",
+    "slug": "upf",
+    "version": "1.0.4",
+
+    "icon": "./assets/logoUPF.png",
+
+    "android": {
+      "package": "com.anonymous.upf",
+      "versionCode": 2,  
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logoUPF.png",
+        "backgroundColor": "#0a0f0d"
+      }
+    },
+
+    "ios": {
+      "icon": "./assets/logoUPF.png"
+    },
+
+    "extra": {
+      "eas": {
+        "projectId": "56308bc5-c970-46de-9d26-aa98e0a4407e"
+      }
     }
-  },
-  "owner": "poomjai"
+  }
 }

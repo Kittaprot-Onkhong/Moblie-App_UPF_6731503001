@@ -32,7 +32,6 @@ import {
   ref,
   uploadBytes,
   getDownloadURL,
-  
 } from 'firebase/storage';
 
 // ─── Firebase Config ──────────────────────────────────────────
@@ -46,31 +45,33 @@ const firebaseConfig = {
   measurementId:     'G-LP7NEEYDJE',
 };
 
-// ─── Init (ป้องกัน init ซ้ำ) ──────────────────────────────────
-const app  = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const db   = getFirestore(app);
+// ─── Init ─────────────────────────────────────────────────────
+const app     = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const auth    = getAuth(app);
+const db      = getFirestore(app);
 const storage = getStorage(app);
 
 export { auth, db, storage };
 
 // ─── Types ────────────────────────────────────────────────────
 export interface UserProfile {
-  uid: string;
-  name: string;
-  email: string;
-  avatar: string;           // URL รูปโปรไฟล์
-  memberSince: string;      // วันที่สมัคร (ISO string)
-  scannedProducts: number;
+  uid:              string;
+  name:             string;
+  email:            string;
+  avatar:           string;
+  memberSince:      string;
+  scannedProducts:  number;
   favoriteProducts: number;
-  favorites: string[];      // รายการอาหารโปรด
-  healthScore: number;
-  healthGoal: string;       // เป้าหมายสุขภาพ (ข้อความ)
-  appRating: number;        // คะแนนให้แอพ (1–5)
-  appReview: string;        // รีวิวแอพ
+  favorites:        string[];
+  healthScore:      number;
+  healthGoal:       string;
+  appRating:        number;
+  appReview:        string;
+  eatHistory?:      Record<string, any[]>;   // eatHistory.YYYY-MM-DD = []
+  [key: string]:    any;                     // ← รองรับ dynamic field เช่น healthScore_2025-01-01
 }
 
-// ─── Helper: แปลง Firebase Error เป็น message ภาษาไทย ──────
+// ─── Helper ───────────────────────────────────────────────────
 const parseError = (err: any): string => {
   const code = err?.code ?? '';
   const map: Record<string, string> = {
@@ -87,14 +88,11 @@ const parseError = (err: any): string => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  AUTH FUNCTIONS
+//  AUTH
 // ═══════════════════════════════════════════════════════════════
 
-// ─── Register ────────────────────────────────────────────────
 export const registerUser = async (
-  email: string,
-  password: string,
-  name: string,
+  email: string, password: string, name: string,
 ): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -102,62 +100,48 @@ export const registerUser = async (
     const now  = new Date().toISOString();
 
     const profile: UserProfile = {
-      uid,
-      name,
-      email,
-      avatar:          '',
-      memberSince:     now,
-      scannedProducts: 0,
-      favoriteProducts: 0,
-      favorites:       [],
-      healthScore:     0,
-      healthGoal:      '',
-      appRating:       0,
-      appReview:       '',
+      uid, name, email,
+      avatar: '', memberSince: now,
+      scannedProducts: 0, favoriteProducts: 0, favorites: [],
+      healthScore: 0, healthGoal: '', appRating: 0, appReview: '',
+      eatHistory: {},
     };
 
-    // บันทึกลง Firestore collection "users" / document = uid
-    await setDoc(doc(db, 'users', uid), {
-      ...profile,
-      createdAt: serverTimestamp(),
-    });
-
+    await setDoc(doc(db, 'users', uid), { ...profile, createdAt: serverTimestamp() });
     return { success: true, user: profile };
   } catch (err: any) {
     return { success: false, error: parseError(err) };
   }
 };
 
-// ─── Login (ตรวจจาก Firebase Auth — ปลอดภัยที่สุด) ──────────
 export const loginUser = async (
-  email: string,
-  password: string,
+  email: string, password: string,
 ): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     const uid  = cred.user.uid;
-
-    // ดึง profile จาก Firestore
     const snap = await getDoc(doc(db, 'users', uid));
+
     if (!snap.exists()) {
-      // มี auth account แต่ยังไม่มี profile (กรณีพิเศษ) → สร้างใหม่
       const profile: UserProfile = {
         uid, name: email.split('@')[0], email,
         avatar: '', memberSince: new Date().toISOString(),
         scannedProducts: 0, favoriteProducts: 0, favorites: [],
         healthScore: 0, healthGoal: '', appRating: 0, appReview: '',
+        eatHistory: {},
       };
       await setDoc(doc(db, 'users', uid), { ...profile, createdAt: serverTimestamp() });
       return { success: true, user: profile };
     }
 
-    return { success: true, user: snap.data() as UserProfile };
+    // ✅ คืน raw data ทั้งหมดจาก Firestore รวมถึง dynamic fields
+    const rawData = snap.data();
+    return { success: true, user: rawData as UserProfile };
   } catch (err: any) {
     return { success: false, error: parseError(err) };
   }
 };
 
-// ─── Google Sign-In (Web popup) ───────────────────────────────
 export const signInWithGoogle = async (): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
   try {
     const provider = new GoogleAuthProvider();
@@ -168,10 +152,8 @@ export const signInWithGoogle = async (): Promise<{ success: boolean; user?: Use
   }
 };
 
-// ─── Google Sign-In (Native — credential) ────────────────────
 export const signInWithGoogleCredential = async (
-  idToken: string | null,
-  accessToken: string | null,
+  idToken: string | null, accessToken: string | null,
 ): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
   try {
     const credential = GoogleAuthProvider.credential(idToken, accessToken);
@@ -182,33 +164,29 @@ export const signInWithGoogleCredential = async (
   }
 };
 
-// helper — upsert Google user ใน Firestore
 const _upsertGoogleUser = async (fbUser: User): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
   const uid  = fbUser.uid;
   const snap = await getDoc(doc(db, 'users', uid));
 
   if (snap.exists()) {
+    // ✅ คืน raw data ทั้งหมด
     return { success: true, user: snap.data() as UserProfile };
   }
 
   const profile: UserProfile = {
     uid, name: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? 'User',
-    email: fbUser.email ?? '',
-    avatar: fbUser.photoURL ?? '',
+    email: fbUser.email ?? '', avatar: fbUser.photoURL ?? '',
     memberSince: new Date().toISOString(),
     scannedProducts: 0, favoriteProducts: 0, favorites: [],
     healthScore: 0, healthGoal: '', appRating: 0, appReview: '',
+    eatHistory: {},
   };
   await setDoc(doc(db, 'users', uid), { ...profile, createdAt: serverTimestamp() });
   return { success: true, user: profile };
 };
 
-// ─── Logout ───────────────────────────────────────────────────
-export const logoutUser = async () => {
-  await signOut(auth);
-};
+export const logoutUser = async () => { await signOut(auth); };
 
-// ─── Reset Password (ส่งลิงก์ไปที่ email) ───────────────────
 export const resetPassword = async (
   email: string,
 ): Promise<{ success: boolean; error?: string }> => {
@@ -220,33 +198,57 @@ export const resetPassword = async (
   }
 };
 
-// ─── Auth State Observer (ใช้ใน App.tsx เพื่อ persistent login) ──
-export const onAuthChanged = (callback: (user: User | null) => void) => {
-  return onAuthStateChanged(auth, callback);
-};
+export const onAuthChanged = (callback: (user: User | null) => void) =>
+  onAuthStateChanged(auth, callback);
 
-// ─── Get current user profile from Firestore ─────────────────
+// ─── getUserProfile ───────────────────────────────────────────
+// ✅ แก้หลัก: คืน snap.data() ทั้งหมดโดยไม่ filter
+// ทำให้ dynamic fields เช่น healthScore_2025-01-15, eatHistory
+// ถูกส่งกลับมาใน store ด้วย พอ restart แล้วคะแนนจึงไม่หาย
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   try {
     const snap = await getDoc(doc(db, 'users', uid));
-    return snap.exists() ? (snap.data() as UserProfile) : null;
+    if (!snap.exists()) return null;
+
+    // คืน raw data ทั้งหมด — ไม่ cast เป็น UserProfile ที่มี field จำกัด
+    const rawData = snap.data();
+
+    // ✅ ตรวจสอบว่า collection users มีอยู่แล้ว ถ้ายังไม่มีค่าบางอย่างให้ set default
+    const profile: UserProfile = {
+      uid:              rawData.uid              ?? uid,
+      name:             rawData.name             ?? '',
+      email:            rawData.email            ?? '',
+      avatar:           rawData.avatar           ?? '',
+      memberSince:      rawData.memberSince      ?? new Date().toISOString(),
+      scannedProducts:  rawData.scannedProducts  ?? 0,
+      favoriteProducts: rawData.favoriteProducts ?? 0,
+      favorites:        rawData.favorites        ?? [],
+      healthScore:      rawData.healthScore      ?? 0,
+      healthGoal:       rawData.healthGoal       ?? '',
+      appRating:        rawData.appRating        ?? 0,
+      appReview:        rawData.appReview        ?? '',
+      eatHistory:       rawData.eatHistory       ?? {},
+      // ✅ spread raw data ทั้งหมดเพื่อรวม dynamic fields
+      // เช่น healthScore_2025-01-15, healthScore_2025-01-16, ...
+      ...rawData,
+    };
+
+    return profile;
   } catch {
     return null;
   }
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  PROFILE UPDATE FUNCTIONS
+//  PROFILE UPDATE
 // ═══════════════════════════════════════════════════════════════
 
-// ─── Upload Profile Photo ─────────────────────────────────────
 export const uploadProfilePhoto = async (
-  uid: string,
-  uri: string, // local file URI จาก image picker
+  uid: string, uri: string,
 ): Promise<{ success: boolean; url?: string; error?: string }> => {
   try {
-    const response = await fetch(uri);
-    const blob     = await response.blob();
+    const response   = await fetch(uri);
+    const blob       = await response.blob();
     const storageRef = ref(storage, `profile_photos/${uid}/avatar.jpg`);
     await uploadBytes(storageRef, blob);
     const url = await getDownloadURL(storageRef);
@@ -257,61 +259,45 @@ export const uploadProfilePhoto = async (
   }
 };
 
-// ─── Update Health Goal ───────────────────────────────────────
 export const updateHealthGoal = async (uid: string, goal: string) => {
   await updateDoc(doc(db, 'users', uid), { healthGoal: goal });
 };
 
-// ─── Add Favorite Food ────────────────────────────────────────
 export const addFavoriteFood = async (uid: string, foodName: string) => {
   await updateDoc(doc(db, 'users', uid), {
-  favorites:        arrayUnion(foodName),
-  favoriteProducts: increment(1),   // ← ใช้ Firestore increment() ดีที่สุด!
-});
+    favorites:        arrayUnion(foodName),
+    favoriteProducts: increment(1),
+  });
 };
 
-
-
-// ─── Submit App Rating + Review ──────────────────────────────
 export const submitAppRating = async (uid: string, rating: number, review: string) => {
   await updateDoc(doc(db, 'users', uid), { appRating: rating, appReview: review });
 };
 
-// ─── Submit Bug Report (with multiple images) ────────────────
-// เก็บลงใน collection "reports" / sub-document
 export const submitBugReport = async (
-  uid: string,
-  message: string,
-  imageUris: string[], // local URIs
+  uid: string, message: string, imageUris: string[],
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // อัปโหลดรูปทีละรูป
     const imageUrls: string[] = [];
     for (let i = 0; i < imageUris.length; i++) {
-      const response  = await fetch(imageUris[i]);
-      const blob      = await response.blob();
+      const response   = await fetch(imageUris[i]);
+      const blob       = await response.blob();
       const storageRef = ref(storage, `reports/${uid}/${Date.now()}_${i}.jpg`);
       await uploadBytes(storageRef, blob);
       const url = await getDownloadURL(storageRef);
       imageUrls.push(url);
     }
-
-    // บันทึก report ลง Firestore
     await addDoc(collection(db, 'reports'), {
-      uid,
-      message,
-      imageUrls,
+      uid, message, imageUrls,
       createdAt: serverTimestamp(),
       status: 'pending',
     });
-
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
 };
 
-// ─── Update Scanned Products Count ───────────────────────────
 export const incrementScanCount = async (uid: string) => {
   const snap = await getDoc(doc(db, 'users', uid));
   if (snap.exists()) {
